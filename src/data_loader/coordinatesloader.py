@@ -5,7 +5,7 @@ import json
 class CoordinateLoader:
     def __init__(self):
         project_path = os.path.dirname(os.path.realpath(__file__))
-        self.coordinates_folder = os.path.join(project_path, "../data/coordinates")
+        self.coordinates_folder = os.path.join(project_path, "../../data/coordinates")
         self.coordinates = self._load_coordinates()
 
     def _load_coordinates(self):
