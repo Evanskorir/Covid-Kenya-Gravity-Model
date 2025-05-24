@@ -20,6 +20,13 @@ class AnalysisOrchestrator:
         self.dist_from_nairobi = self.distance_calc.get_distances_from_nairobi()
         self.distance_matrix = self.distance_calc.get_all_distances()
 
+        self.significant_variable_dicts = {
+            "GDP": self.data.gdp,
+            "Poverty Rate": self.data.poverty_rate,
+            "Working Population": self.data.working_population,
+            "TV Access": self.data.tv_access
+        }
+
         self.plotter = Plotter(
             gravity_dict={},
             confirmed=self.data.kenya_confirmed_series,
@@ -101,15 +108,14 @@ class AnalysisOrchestrator:
         self.plotter.plot_individual()
 
     def _run_clustering(self):
-        clustering = CountyPeriodClustering(self.data.cases_by_date)
-        snapshot = "CasesJuly-21,-2021"
-
-        linkage_matrix, labels = clustering.compute_linkage_for_date(
-            snapshot,
-            log_transform=True,
+        clustering = CountyPeriodClustering()
+        linkage_matrix, labels = clustering.cluster_on_structural_factors(
+            variable_dicts=self.significant_variable_dicts,
             cluster_threshold=2.0,
             show_clusters=True
         )
+
+        snapshot = "CasesJuly-21,-2021"
 
         ordered_counties = [
             "mombasa", "kwale", "kilifi", "tana river", "lamu", "taita taveta", "garissa", "wajir",
@@ -127,7 +133,7 @@ class AnalysisOrchestrator:
             shapefile_gdf=gdf,
             linkage_matrix=linkage_matrix,
             counties=labels,
-            cluster_threshold=2.0,
+            cluster_threshold=3.8,
             cases_by_date=self.data.cases_by_date,
             distance_dict=self.dist_from_nairobi,
             selected_snapshots=[snapshot],
@@ -137,17 +143,12 @@ class AnalysisOrchestrator:
         )
 
         # Choropleth & stacked bars
-        variable_dicts = {
-            "GDP": self.data.gdp,
-            "Poverty Rate": self.data.poverty_rate,
-            "Working Population": self.data.working_population,
-            "TV Access": self.data.tv_access
-        }
-        self.plotter.plot_stacked_percent_bars_by_county(variable_dicts, output_dir="output")
+        self.plotter.plot_stacked_percent_bars_by_county(self.significant_variable_dicts,
+                                                         output_dir="output")
         titles = {
             "Poverty Rate": "Kenya Counties by Poverty Rate (%)",
             "GDP": "Kenya Counties by GDP",
             "TV Access": "Kenya Households with TV Access (%)",
             "Working Population": "Kenya Counties by Working Population"
         }
-        self.plotter.plot_multiple_choropleths(gdf, variable_dicts, titles)
+        self.plotter.plot_multiple_choropleths(gdf, self.significant_variable_dicts, titles)

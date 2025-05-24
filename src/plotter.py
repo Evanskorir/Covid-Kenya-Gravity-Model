@@ -443,7 +443,6 @@ class Plotter:
         if ax is None:
             fig, ax = plt.subplots(figsize=(18, 10), dpi=300)
 
-        # Use county number strings as labels
         numeric_labels = [
             str(county_number_map.get(self.normalize_county_name(c), "?"))
             for c in counties
@@ -456,11 +455,11 @@ class Plotter:
             ax=ax,
             color_threshold=threshold
         )
-        # Map county number strings to actual hex colors
+
         color_map = self.get_color_map()
         raw_colors = dict(zip(dendro['ivl'], dendro['leaves_color_list']))
-        self.dendo_colors = {label: color_map.get(code, code) for label,
-                                                                  code in raw_colors.items()}
+        self.dendo_colors = {label: color_map.get(code,
+                                                  code) for label, code in raw_colors.items()}
 
         for lbl in ax.get_xmajorticklabels():
             label = lbl.get_text()
@@ -473,7 +472,7 @@ class Plotter:
                 line.set_linewidth(1.0)
 
         ax.set_ylabel("Cluster distance", fontsize=25, fontweight="bold", color="darkblue")
-        ax.tick_params(axis='y', labelsize=20, width=3.5, length=8, colors="darkblue")
+        ax.tick_params(axis='y', labelsize=20, width=4.5, length=10, colors="darkblue")
         ax.tick_params(axis='x', bottom=False)
 
         ax.spines['top'].set_visible(False)
@@ -617,7 +616,8 @@ class Plotter:
                             patheffects.Normal()
                         ])
 
-        ax.set_xlabel("COVID-19 Cases", fontsize=22, fontweight="bold")
+        ax.set_xlabel(f"Confirmed COVID-19 Cases as at July 21, 2021", fontsize=22,
+                      fontweight="bold")
         ax.set_ylabel("Distance from Nairobi (km)", fontsize=22, fontweight="bold")
 
         for spine in ["top", "right"]:
