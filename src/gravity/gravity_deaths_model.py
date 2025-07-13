@@ -4,13 +4,13 @@ from src.gravity.gravity_base_model import BaseGravityModel
 
 
 class DeathsGravityModel(BaseGravityModel):
-    def __init__(self, data_loader, distances_from_nairobi, alpha=0.05, output_dir="output"):
+    def __init__(self, data_loader, distances_from_county_hub, alpha=0.05, output_dir="output"):
         features = [
             "log_gdp", "log_population", "log_distance", "any_insurance",
             "poverty_rate", "positive_test_rates",
             "NHIF_cover", "population_vaccinated", "elderly_persons"
         ]
-        super().__init__(data_loader, distances_from_nairobi, "deaths",
+        super().__init__(data_loader, distances_from_county_hub, "deaths",
                          features, alpha, output_dir)
 
     def _extract_features(self, county, distance, _):

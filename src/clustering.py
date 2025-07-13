@@ -39,3 +39,30 @@ class CountyPeriodClustering:
 
         return linkage_matrix, df.index
 
+    def cluster_on_prevalence_snapshot(self, snapshot_label,
+                                       cluster_threshold=2.0,
+                                       distance_metric="euclidean",
+                                       show_clusters=False):
+        """
+        Clusters counties based on prevalence values for a given snapshot.
+        """
+        if snapshot_label not in self.cases_by_date:
+            raise ValueError(f"Snapshot '{snapshot_label}' not found.")
+
+        # Convert to DataFrame
+        prevalence_series = pd.Series(self.cases_by_date[snapshot_label]).dropna()
+        df = prevalence_series.to_frame(name="Prevalence")
+
+        # Standardize
+        scaled_data = StandardScaler().fit_transform(df)
+
+        # Compute linkage
+        distances = pdist(scaled_data, metric=distance_metric)
+        linkage_matrix = linkage(distances, method="complete")
+
+        if show_clusters:
+            print("Counties clustered on prevalence for:", snapshot_label)
+
+        return linkage_matrix, df.index
+
+

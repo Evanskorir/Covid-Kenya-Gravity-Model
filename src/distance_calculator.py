@@ -45,15 +45,16 @@ class DistanceCalculator:
     def get_all_distances(self):
         return self.distance_matrix
 
-    def get_distances_from_nairobi(self, nairobi_name="Nairobi"):
+    def get_distances_from_hub(self, hub_name="Nairobi"):
         """
-        Returns a dict of distances from Nairobi to each other county.
+        Returns a dict of distances from a selected hub county to every other county.
         """
-        if nairobi_name not in self.counties:
-            raise ValueError(f"Nairobi ({nairobi_name}) not found in county list.")
+        if hub_name not in self.counties:
+            raise ValueError(f"{hub_name} not found in county list.")
 
         return {
-            county: self.distance_matrix.get((nairobi_name, county))
-            for county in self.counties if county != nairobi_name
+            county: self.distance_matrix.get((hub_name, county))
+            for county in self.counties if county != hub_name
         }
+
 

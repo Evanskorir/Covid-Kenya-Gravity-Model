@@ -19,6 +19,7 @@ matplotlib.use("Agg")
 class Plotter:
     def __init__(self, gravity_dict, confirmed, deaths,
                  output_dir="output"):
+
         self.dendo_colors = None
         self.gravity_dict = gravity_dict
         self.output_dir = output_dir
@@ -138,8 +139,8 @@ class Plotter:
 
     @staticmethod
     def plot_variable_correlation_matrix(data, case_snapshots=None,
-                                         output_path="output/correlation_matrix.pdf"):
-
+                                         output_path="output/correlation_matrix.pdf",
+                                         label_type="Cases"):
         df = data.get_all_data()
 
         # Define core socioeconomic variables
@@ -153,26 +154,25 @@ class Plotter:
 
         col_map = {col.replace(" ", "_"): col for col in base_cols}
 
-        # Add case columns to DataFrame and build list for reordering
-        case_cols = []
+        # Add dynamic case/prevalence columns
+        value_cols = []
         if case_snapshots:
             for label, series in case_snapshots.items():
-                case_col = f"Cases_{label}"
-                df[case_col] = series
-                case_cols.append(case_col)
+                var_col = f"{label_type}_{label}"
+                df[var_col] = series
+                value_cols.append(var_col)
 
-        # Final column order: cases first, then socioeconomic
-        final_cols = case_cols + [col.replace(" ", "_") for col in base_cols]
+        # Final column order
+        final_cols = value_cols + [col.replace(" ", "_") for col in base_cols]
         df = df[final_cols].dropna()
         corr = df.corr().round(2)
         corr = corr.iloc[::-1]
 
-        # Define axis labels
+        # Axis labels
         labels = [col_map.get(col, col.replace("_", " ")) for col in corr.columns]
         fig, ax = plt.subplots(figsize=(15, 12))
         cax = ax.matshow(corr, cmap="coolwarm", vmin=-1, vmax=1)
 
-        # Ticks
         ticks = np.arange(len(corr.columns))
         ax.set_xticks(ticks)
         ax.set_yticks(ticks)
@@ -184,38 +184,42 @@ class Plotter:
             spine.set_visible(True)
             spine.set_linewidth(3)
 
-        # Annotate each cell
+        # Annotate
         for i in range(len(corr.columns)):
             for j in range(len(corr.columns)):
                 val = corr.iloc[i, j]
-                text_color = "white" if abs(val) > 0.5 else "black"
-                ax.text(j, i, f"{val:.2f}",
-                        ha='center', va='center',
-                        fontsize=11, color=text_color, fontweight="bold")
+                color = "white" if abs(val) > 0.5 else "black"
+                ax.text(j, i, f"{val:.2f}", ha='center', va='center',
+                        fontsize=11, color=color, fontweight="bold")
 
         plt.tight_layout()
-
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         plt.savefig(output_path, dpi=300)
         plt.close()
         print(f"correlation matrix saved to {output_path}")
 
     @staticmethod
-    def plot_gravity_vector_map_with_time_series(distances_from_nairobi, cases_by_date,
+    def plot_gravity_vector_map_with_time_series(distances_from_hub, cases_by_date,
                                                  coordinates_dict, shapefile_gdf, output_path,
-                                                 selected_dates=None):
+                                                 selected_dates=None,
+                                                 hub_name="Nairobi"):
         if selected_dates is None:
             selected_dates = list(cases_by_date.keys())[:5]
 
-        nairobi_coord = coordinates_dict["Nairobi"]
+        if hub_name not in coordinates_dict:
+            raise ValueError(f"Hub county '{hub_name}' not found in coordinates.")
+
+        hub_coord = coordinates_dict[hub_name]
         fig, ax = plt.subplots(1, 1, figsize=(16, 16))
         shapefile_gdf.plot(ax=ax, edgecolor="gray", facecolor="white", linewidth=0.7)
+
         date_colors = {
             date: color for date, color in zip(
                 selected_dates,
                 ["red", "#984ea3", "#33a02c", "#ff7f00", "#e31a1c"]
             )
         }
+
         distance_colors = {
             "≤100 km": "black",
             "100–200 km": "blue",
@@ -237,11 +241,11 @@ class Plotter:
                 return ">400 km", distance_colors[">400 km"]
 
         used_bands = set()
-        for county, dist in distances_from_nairobi.items():
+        for county, dist in distances_from_hub.items():
             if county not in coordinates_dict or county == "Nairobi":
                 continue
 
-            x1, y1 = nairobi_coord[1], nairobi_coord[0]
+            x1, y1 = hub_coord[1], hub_coord[0]
             x2, y2 = coordinates_dict[county][1], coordinates_dict[county][0]
             band_label, color = get_band_and_color(dist)
             used_bands.add(band_label)
@@ -284,9 +288,9 @@ class Plotter:
                 patheffects.Normal()
             ])
 
-        ax.plot(nairobi_coord[1], nairobi_coord[0], marker="*", color="black",
+        ax.plot(hub_coord[1], hub_coord[0], marker="*", color="black",
                 markersize=20, zorder=10)
-        ax.text(nairobi_coord[1], nairobi_coord[0], "Nairobi",
+        ax.text(hub_coord[1], hub_coord[0], "Nairobi",
                 fontsize=11, ha='right', va='top', color='black', fontweight='bold')
 
         # --- DISTANCE LEGEND ---
@@ -602,13 +606,13 @@ class Plotter:
 
             label = str(num)
             color = self.dendo_colors.get(label, "gray")
-            x = case_dict.get(county)
-            y = distance_dict.get(county)
+            x = distance_dict.get(county)  # Now x is distance
+            y = case_dict.get(county)  # Now y is cases/prevalence
 
             if x is not None and y is not None:
                 ax.scatter(x, y, color=color, edgecolor='black', linewidth=0.3,
                            s=55, zorder=3)
-                ax.text(x + 60, y + 5, label,
+                ax.text(x + 5, y + 60, label,
                         fontsize=15, ha="left", va="bottom", weight="bold",
                         color=color, zorder=5,
                         path_effects=[
@@ -616,9 +620,9 @@ class Plotter:
                             patheffects.Normal()
                         ])
 
-        ax.set_xlabel(f"Confirmed COVID-19 Cases as at July 21, 2021", fontsize=22,
-                      fontweight="bold")
-        ax.set_ylabel("Distance from Nairobi (km)", fontsize=22, fontweight="bold")
+        ax.set_xlabel("Distance from Nairobi (km)", fontsize=20, fontweight="bold")
+        # ax.set_ylabel("COVID-19 Cases", fontsize=20, fontweight="bold") # cases
+        ax.set_ylabel("COVID-19 Prevalence", fontsize=20, fontweight="bold")  # prevalence
 
         for spine in ["top", "right"]:
             ax.spines[spine].set_visible(False)
@@ -630,13 +634,17 @@ class Plotter:
         ax.minorticks_off()
         ax.tick_params(axis='both', which='major', direction='out',
                        length=8, width=3, colors='black',
-                       bottom=True, top=False, left=True, right=False, labelsize=15)
+                       bottom=True, top=False, left=True, right=False, labelsize=18)
 
-    def plot_combined_cluster_figure(self, shapefile_gdf, linkage_matrix, counties,
-                                     cluster_threshold, cases_by_date, distance_dict,
-                                     selected_snapshots, county_number_map,
-                                     date_label, save_path):
-
+    def plot_combined_cluster_view(self, shapefile_gdf, linkage_matrix, counties,
+                                   cluster_threshold, cases_by_date, distance_dict,
+                                   selected_snapshots, county_number_map,
+                                   date_label, save_path, label_type='cases'):
+        """
+        Combined plotting method for cluster dendrogram, map, and scatter plot.
+        Works for both cases and prevalence by specifying label_type.
+        """
+        import matplotlib.gridspec as gridspec
         fig = plt.figure(figsize=(25, 22))
         gs = gridspec.GridSpec(3, 6, height_ratios=[0.8, 2.5, 2.2],
                                width_ratios=[1.3, 1, 1, 1, 1, 1])
@@ -684,11 +692,13 @@ class Plotter:
             ax=ax_scatter
         )
 
-        # Keep y-axis (left) spine for dendrogram
+        # Set y-label depending on label_type
+        ax_scatter.set_ylabel(f"COVID-19 {label_type.title()}", fontsize=20, fontweight="bold")
+
+        # Keep y-axis spine for dendrogram
         for spine in ["top", "right", "bottom"]:
             ax_dendro.spines[spine].set_visible(False)
 
-        # Remove all spines for map (geographical)
         for spine in ax_map.spines.values():
             spine.set_visible(False)
 
@@ -713,9 +723,7 @@ class Plotter:
                            fontsize=font_size, color=color,
                            ha="left", va="top", fontweight="medium")
 
-        # Adjust layout to allow legend to fit
         fig.tight_layout(rect=[0, 0, 1, 0.95])
-
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         plt.savefig(save_path, dpi=400, facecolor='white', transparent=False)
         plt.close()
@@ -791,18 +799,19 @@ class Plotter:
             for county in counties
         }
 
-        # --- Normalize GDP and Working Population to Percentages ---
-        gdp_dict = variable_dicts["GDP"]
-        working_dict = variable_dicts["Working Population"]
+        # --- Normalize GDP, Working Pop., Population Tested, and Number of Households ---
+        gdp_total = sum(variable_dicts["GDP"].values())
+        working_total = sum(variable_dicts["Working Population"].values())
+        tested_total = sum(variable_dicts["population_tested"].values())
+        household_total = sum(variable_dicts["Number of Households"].values())
 
-        gdp_total = sum(gdp_dict.values())
-        working_total = sum(working_dict.values())
-
-        gdp_percent = {k: (v / gdp_total) * 100 for k, v in gdp_dict.items()}
-        working_percent = {k: (v / working_total) * 100 for k, v in working_dict.items()}
-
-        variable_dicts["GDP"] = gdp_percent
-        variable_dicts["Working Population"] = working_percent
+        variable_dicts["GDP"] = {k: (v / gdp_total) * 100 for k, v in variable_dicts["GDP"].items()}
+        variable_dicts["Working Population"] = {k: (v / working_total) * 100 for k, v in
+                                                variable_dicts["Working Population"].items()}
+        variable_dicts["population_tested"] = {k: (v / tested_total) * 100 for k, v in
+                                               variable_dicts["population_tested"].items()}
+        variable_dicts["Number of Households"] = {k: (v / household_total) * 100 for k, v in
+                                                  variable_dicts["Number of Households"].items()}
 
         # --- Prepare Data ---
         data_rows = []
@@ -813,7 +822,9 @@ class Plotter:
                 "GDP": variable_dicts["GDP"].get(county, 0),
                 "Poverty Rate": variable_dicts["Poverty Rate"].get(county, 0),
                 "Working Population": variable_dicts["Working Population"].get(county, 0),
-                "TV Access": variable_dicts["TV Access"].get(county, 0)
+                "TV Access": variable_dicts["TV Access"].get(county, 0),
+                "Population Tested": variable_dicts["population_tested"].get(county, 0),
+                "Number of Households": variable_dicts["Number of Households"].get(county, 0)
             }
             data_rows.append(row)
 
@@ -831,8 +842,9 @@ class Plotter:
             "font.size": 15
         })
 
-        categories = ["GDP", "Poverty Rate", "Working Population", "TV Access"]
-        colors = ["red", "cyan", "purple", "orange"]
+        categories = ["GDP", "Poverty Rate", "Working Population", "TV Access",
+                      "Population Tested", "Number of Households"]
+        colors = ["red", "cyan", "purple", "orange", "green", "#4682B4"]
 
         intra_spacing = 0.001
         inter_region_spacing = 0.002
@@ -862,7 +874,7 @@ class Plotter:
         df = df.sort_values(by="x_plot").reset_index(drop=True)
 
         # --- Plot ---
-        fig, ax = plt.subplots(figsize=(10, 4))  # Smaller, horizontal focus
+        fig, ax = plt.subplots(figsize=(10, 4))
         bottoms = np.zeros(len(df))
 
         for i, cat in enumerate(categories):
@@ -878,18 +890,16 @@ class Plotter:
         ax.set_xticklabels(df["County"], rotation=90, fontsize=6)
         ax.set_ylabel("Percentage (%)", fontsize=15, fontweight='bold')
         ax.set_ylim(0, bottoms.max() * 1.12)
-
         ax.tick_params(axis='y', which='both', length=3, width=0.8, direction='out')
         ax.yaxis.set_tick_params(labelsize=8)
 
-        # --- Region Labels (Bottom-Centered & Rotated) ---
+        # --- Region Labels ---
         for center, region in region_centers:
             ax.text(center, -bottoms.max() * 0.38, region,
                     ha='center', va='top', rotation=20,
                     fontsize=8, fontweight='bold', clip_on=False)
 
         handles, labels = ax.get_legend_handles_labels()
-
         plt.subplots_adjust(left=0.04, right=0.98, top=0.94, bottom=0.38)
 
         fig.legend(
@@ -897,7 +907,7 @@ class Plotter:
             fontsize=10,
             loc='lower center',
             bbox_to_anchor=(0.5, -0.08),
-            ncol=4,
+            ncol=6,  # Updated to fit 6 items
             frameon=False
         )
         plt.tight_layout(rect=[0.01, 0.05, 0.99, 0.95])
@@ -905,4 +915,4 @@ class Plotter:
         filepath = os.path.join(output_dir, filename)
         plt.savefig(filepath, dpi=400, bbox_inches='tight')
         plt.close()
-        print(f"plot saved to: {filepath}")
+

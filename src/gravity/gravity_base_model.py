@@ -11,10 +11,10 @@ matplotlib.use("Agg")
 
 
 class BaseGravityModel:
-    def __init__(self, data_loader, distances_from_nairobi,
+    def __init__(self, data_loader, distances_from_county_hub,
                  target_variable, features, alpha=0.05, output_dir="output"):
         self.data = data_loader
-        self.distances = distances_from_nairobi
+        self.distances = distances_from_county_hub
         self.target_variable = target_variable
         self.features = features
         self.alpha = alpha
@@ -29,7 +29,7 @@ class BaseGravityModel:
         skipped = []
 
         for county, distance in self.distances.items():
-            if county == "Nairobi":
+            if county in ["Nairobi", "Mombasa"]:
                 continue
 
             try:
@@ -47,9 +47,6 @@ class BaseGravityModel:
 
             except Exception:
                 skipped.append(county)
-
-        if skipped:
-            print(f"Skipped counties for {self.target_variable}: {', '.join(skipped)}")
 
         return pd.DataFrame(records)
 
@@ -77,7 +74,6 @@ class BaseGravityModel:
         with PdfPages(path) as pdf:
             pdf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
-        print(f"📄 Saved: {path}")
 
     def run_model(self, target_dict, label=""):
         print(f"Fitting gravity model for {label}...")

@@ -126,6 +126,29 @@ class DataLoader:
 
         return gdf
 
+    def compute_prevalence_by_date(self, scale=100000):
+        """Returns a dictionary of prevalence per county per date (cases per 100,000 population)."""
+        if not self.population:
+            raise ValueError("Population data not loaded.")
+
+        prevalence_by_date = {}
+
+        for date_label, case_dict in self.cases_by_date.items():
+            prevalence_dict = {}
+            for county, cases in case_dict.items():
+                pop = self.population.get(county)
+                if pop is None or pop == 0:
+                    prevalence = 0
+                else:
+                    prevalence = (cases / pop) * scale
+
+                prevalence_dict[county] = prevalence
+
+            prevalence_by_date[date_label] = prevalence_dict
+
+        return prevalence_by_date
+
+
 
 
 

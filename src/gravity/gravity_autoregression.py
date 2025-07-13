@@ -8,11 +8,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 
 class SpatialGravityModel:
-    def __init__(self, data_loader, distance_matrix, distances_from_nairobi,
-                 alpha=0.05, output_dir="output", target_variable="cases"):
+    def __init__(self, data_loader, distance_matrix, distances_from_county_hub,
+                 target_variable, alpha=0.05, output_dir="output"):
         self.data = data_loader
         self.distance_matrix = distance_matrix
-        self.distances = distances_from_nairobi
+        self.distances = distances_from_county_hub
         self.alpha = alpha
         self.output_dir = output_dir
         self.target_variable = target_variable
@@ -49,7 +49,6 @@ class SpatialGravityModel:
         with PdfPages(path) as pdf:
             pdf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
-        print(f"Saved SAR summary to: {path}")
 
     def fit_model_for_single_point(self, label, selected_vars, target_dict):
         print(f"Fitting spatial gravity model for {label}...")
@@ -63,7 +62,6 @@ class SpatialGravityModel:
             N = target_dict.get(county)
             if N is None:
                 continue
-
             try:
                 record = {"county": county, f"log_{self.target_variable}": np.log(N)}
 
@@ -71,11 +69,17 @@ class SpatialGravityModel:
                     if var == "log_population":
                         val = self.data.population[county]
                         record[var] = np.log(val)
+                    if var == "log_pop_density":
+                        val = self.data.density[county]
+                        record[var] = np.log(val)
                     elif var == "log_gdp":
                         val = self.data.gdp[county]
                         record[var] = np.log(val)
                     elif var == "log_working":
                         val = self.data.working_population[county]
+                        record[var] = np.log(val)
+                    elif var == "log_house_holds":
+                        val = self.data.number_households[county]
                         record[var] = np.log(val)
                     elif var == "log_distance":
                         record[var] = np.log(distance)
@@ -97,10 +101,6 @@ class SpatialGravityModel:
                 continue
 
         df = pd.DataFrame(records).set_index("county")
-
-        if df.empty:
-            print(f"Skipping {label}: no valid data.")
-            return
 
         log_col = f"log_{self.target_variable}"
         df["spatial_lag"] = self._build_spatial_lag(df[log_col])

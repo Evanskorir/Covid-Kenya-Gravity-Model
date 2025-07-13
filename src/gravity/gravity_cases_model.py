@@ -4,19 +4,23 @@ from src.gravity.gravity_base_model import BaseGravityModel
 
 
 class CasesGravityModel(BaseGravityModel):
-    def __init__(self, data_loader, distances_from_nairobi, alpha=0.05, output_dir="output"):
+    def __init__(self, data_loader, distances_from_county_hub, alpha=0.05,
+                 output_dir="output", target_variable="cases"):
         features = [
             "log_population", "log_gdp", "log_working", "log_distance",
-            "poverty_rate", "internet_access", "tv_access",
-            "population_tested", "positive_test_rates", "population_vaccinated"
+            "poverty_rate", "internet_access", "tv_access", "log_house_holds",
+            "population_tested", "log_pop_density", "positive_test_rates",
+            "population_vaccinated"
         ]
-        super().__init__(data_loader, distances_from_nairobi, "cases",
+        super().__init__(data_loader, distances_from_county_hub, target_variable,
                          features, alpha, output_dir)
 
     def _extract_features(self, county, distance, _):
         try:
             P = self.data.population[county]
+            PD = self.data.density[county]
             G = self.data.gdp[county]
+            HH = self.data.number_households[county]
             W = self.data.working_population[county]
             PR = self.data.poverty_rate[county]
             TV = self.data.tv_access[county]
@@ -25,12 +29,14 @@ class CasesGravityModel(BaseGravityModel):
             PTR = self.data.positive_tested_rates[county]
             PV = self.data.pop_vaccinated[county]
 
-            if any(v is None or v <= 0 for v in [P, G, W, distance]):
+            if any(v is None or v <= 0 for v in [P, G, W, HH, PD, distance]):
                 return None
 
             return {
                 "log_population": np.log(P + 1e-6),
+                "log_pop_density": np.log(PD + 1e-6),
                 "log_gdp": np.log(G + 1e-6),
+                "log_house_holds": np.log(HH + 1e-6),
                 "log_working": np.log(W + 1e-6),
                 "log_distance": np.log(distance + 1e-6),
                 "poverty_rate": PR / 100.0,
